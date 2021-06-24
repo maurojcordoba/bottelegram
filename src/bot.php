@@ -54,9 +54,6 @@ if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0
 }
 
 if(isset($update['inline_query'])){
-
-
-
     $results = array();
 
     $inline_query_id = $update['inline_query']['id'];
@@ -113,7 +110,6 @@ if(isset($update['inline_query'])){
 function answerInlineQuery($inline_query_id, $results){
     $url = $GLOBALS['website'].'/answerInlineQuery?inline_query_id='.$inline_query_id.'&results='.urlencode($results);
     $data = file_get_contents($url);
-    //bitacora('data: '.$data);
 }
 
 function sendMessage($chatId, $response) {
@@ -137,21 +133,13 @@ function getEquipos(){
     $file = file('jugadores.txt');
 
     foreach ($file as $key => $line) {
+        $line = str_replace(PHP_EOL, '', $line);
         $j[] = $line;
     }
 
     shuffle($j);
 
-    $response = "
-    <b>Equipo 1:</b>
-    $j[0]
-    $j[1]
-    $j[2]
-  
-  <b>Equipo 2:</b>
-    $j[3]
-    $j[4]
-    $j[5]";
+    $response = "<b>Equipo 1:</b>\n$j[0]\n$j[1]\n$j[2]\n\n<b>Equipo 2:</b>\n$j[3]\n$j[4]\n$j[5]";
 
     return $response;
 }
@@ -204,8 +192,6 @@ function getPartidos($str='hoy'){
         $response .= "\n";
     }
 
-    bitacora($response);
-
     return $response;
 }
 
@@ -217,7 +203,7 @@ function getHelp(){
 }
 
 function bitacora($msg){
-    file_put_contents('m.txt',print_r($msg,true) . "\r\n", FILE_APPEND);
+    file_put_contents('m.txt',sprintf( "[%s - %s]: %s \r\n", date('Y-m-d'),date('H:i:s'),  print_r($msg,true)), FILE_APPEND);
 }
 
 ?>
