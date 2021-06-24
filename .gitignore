@@ -1,2 +1,2 @@
 Dockerfile
-src/config.php
+src\config.php
