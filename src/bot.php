@@ -1,9 +1,13 @@
 <?php
+set_error_handler("LogDeErrores");
+
+date_default_timezone_set("America/Argentina/Buenos_Aires");
+
 include_once 'config.php';
- 
-           
+
 $input = file_get_contents('php://input');
 $update = json_decode($input, TRUE);
+
 
 if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0,1)=='/')) { 
 
@@ -44,6 +48,10 @@ if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0
             break;
         case '/partidos-ayer':
             $response = getPartidos('ayer');
+            sendMessage($chatId, $response);
+            break;
+        case '/partidos-man':
+            $response = getPartidos('man');
             sendMessage($chatId, $response);
             break;
         default:
@@ -162,18 +170,24 @@ function getPartidos($str='hoy'){
 
     $url = 'https://www.promiedos.com.ar/';
     
-    if($str == 'hoy'){
-        $html = file_get_html($url);
-    }else{
-        if($str == 'ayer'){
-            $html = file_get_html($url.'ayer');
-        }
+    switch($str) {
+        case 'hoy':
+            $url = $url;
+            break;
+        case 'ayer':
+            $url = $url.'ayer';
+            break;
+        case 'man':
+            $url = $url.'man';
+            break;
     }
-
+    
+    $html = file_get_html($url);
+    
     $response = '';
     foreach($html->find('#fixturein') as $article) {
         $titulo     = $article->find('.tituloin', 0)->plaintext;    
-        $response = "<b><u>$titulo</u></b>\n";
+        $response .= "<b><u>$titulo</u></b>\n";
 
         foreach($article->find('tr[name=nvp]') as $game) {        
             $tiempo     = $game->find('td',0)->plaintext;
@@ -187,6 +201,7 @@ function getPartidos($str='hoy'){
                 $response .= str_replace(PHP_EOL, '', $salida);
                 $response .= "\n";
             }        
+
         }
 
         $response .= "\n";
@@ -206,4 +221,7 @@ function bitacora($msg){
     file_put_contents('m.txt',sprintf( "[%s - %s]: %s \r\n", date('Y-m-d'),date('H:i:s'),  print_r($msg,true)), FILE_APPEND);
 }
 
+function LogDeErrores($numeroDeError, $descripcion, $fichero, $linea, $contexto){
+	error_log("Error: [".$numeroDeError."] ".$descripcion." ".$fichero." ".$linea." ".json_encode($contexto)." \n\r", 3, "log.txt");
+}
 ?>
