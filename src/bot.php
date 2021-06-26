@@ -102,7 +102,7 @@ if(isset($update['inline_query'])){
                 'thumb_width' => $thumb_width,
                 'thumb_height' => $thumb_height,
                 'input_message_content' => Array(
-                'message_text' => "<b>$title</b>\nOriginal Title: $original_title\nVote Average: $vote_average\nVote Count: $vote_count\n\n$description\n\n<a href='$urlMovie'>URL</a>",
+                'message_text' => "<b>$title</b>\nOriginal Title: $original_title\nVote Average: $vote_average\nVote Count: $vote_count\n\n<img src='$poster_path' alt='$original_title'>\n\n$description\n\n<a href='$urlMovie'>URL</a>",
                     'parse_mode' => 'HTML',
                 )
             )
@@ -168,6 +168,8 @@ function getFrase(){
 function getPartidos($str='hoy'){
     require 'lib/simplehtmldom/simple_html_dom.php';
 
+    $ligas_exc = ['BRASILEIRAO','MLS'];
+
     $url = 'https://www.promiedos.com.ar/';
     
     switch($str) {
@@ -185,27 +187,57 @@ function getPartidos($str='hoy'){
     $html = file_get_html($url);
     
     $response = '';
-    foreach($html->find('#fixturein') as $article) {
-        $titulo     = $article->find('.tituloin', 0)->plaintext;    
-        $response .= "<b><u>$titulo</u></b>\n";
-
-        foreach($article->find('tr[name=nvp]') as $game) {        
-            $tiempo     = $game->find('td',0)->plaintext;
-            $equipo1    = $game->find('td',1)->plaintext;
-            $res1       = $game->find('td',2)->plaintext;
-            $res2       = $game->find('td',3)->plaintext;
-            $equipo2    = $game->find('td',4)->plaintext;
-            
-            if(!empty($equipo1)){
-                $salida = sprintf('%s %s vs %s %s (%s)',$equipo1,$res1,$equipo2,$res2,trim($tiempo));
-                $response .= str_replace(PHP_EOL, '', $salida);
-                $response .= "\n";
-            }        
-
+    foreach($html->find('#partidos div') as $article) {
+        
+        if($article->id == 'titulo2'){
+            if ($article->plaintext == "PROXIMOS\r\nPARTIDOS"){
+                break;
+            } 
         }
 
-        $response .= "\n";
+        if($article->id == 'fixturein'){
+                        
+                $titulo  = trim($article->find('.tituloin', 0)->plaintext);
+
+                // Exceptua ligas
+                if(in_array($titulo,$ligas_exc)) continue;
+
+                $response .= "<b><u>$titulo</u></b>\n";
+
+                foreach($article->find('tr[name=nvp]') as $game) {        
+                    
+                    if( substr($game->id,0,4) == 'gole' ){
+                        $goleseq1    = trim($game->find('td',0)->plaintext);
+                        $goleseq2    = trim($game->find('td',1)->plaintext); 
+                    
+                        if(!empty($goleseq1) && !empty($goleseq2)){
+                            $salida = sprintf("<i>%s \n %s</i>",$goleseq1,$goleseq2);
+                            //$salida = htmlspecialchars($salida);
+                            $response .= str_replace(PHP_EOL, '', $salida);
+                            $response .= "\n";
+                        }  
+
+                    }else{               
+                        $tiempo     = trim($game->find('td',0)->plaintext);
+                        $equipo1    = trim($game->find('td',1)->plaintext);                        
+                        $res1       = trim($game->find('td',2)->plaintext);
+                        $res2       = trim($game->find('td',3)->plaintext);
+                        $equipo2    = trim($game->find('td',4)->plaintext);
+                    
+
+                        if(!empty($equipo1)){
+                            $salida = sprintf('%s %s vs %s %s (%s)',$equipo1,$res1,$equipo2,$res2,trim($tiempo));
+                            $response .= str_replace(PHP_EOL, '', $salida);
+                            $response .= "\n";
+                        }        
+                    }
+                }
+                $response .= "\n";
+        }
+
     }
+
+    if($response == '') $response = 'No hay partidos.';
 
     return $response;
 }
