@@ -8,7 +8,6 @@ include_once 'config.php';
 $input = file_get_contents('php://input');
 $update = json_decode($input, TRUE);
 
-
 if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0,1)=='/')) { 
 
     $chatId = $update['message']['chat']['id'];
@@ -16,8 +15,12 @@ if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0
     
     $message = preg_split("/[\s@]+/", $update['message']['text']);
     $message = strtolower($message[0]);
-    
+
     switch($message) {
+        case '/start':
+            $response = 'Iniciado';
+            sendMessage($chatId, $response);
+            break;
         case '/help':
             $response = getHelp();
             sendMessage($chatId, $response);
@@ -43,16 +46,26 @@ if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0
             sendDice($chatId);
             break;
         case '/partidos-hoy':
+        case '/partidos-ayer':
+        case '/partidos-man':
+            $response = "Usar /hoy, /aye o /man";
+            sendMessage($chatId, $response);
+            break;
+        case '/hoy':
             $response = getPartidos('hoy');
             sendMessage($chatId, $response);
             break;
-        case '/partidos-ayer':
+        case '/aye':
             $response = getPartidos('ayer');
             sendMessage($chatId, $response);
             break;
-        case '/partidos-man':
+        case '/man':
             $response = getPartidos('man');
             sendMessage($chatId, $response);
+            break;
+        case '/planeros':
+            $image = 'planeros.gif';
+            sendAnimation($chatId, $urldom.$image);
             break;
         default:
             $response = getFrase();
@@ -61,59 +74,61 @@ if  ((isset($update['message']['text'])) && (substr($update['message']['text'],0
     }
 }
 
+
 if(isset($update['inline_query'])){
+
     $results = array();
 
     $inline_query_id = $update['inline_query']['id'];
     $query = $update['inline_query']['query'];
+    if(!empty($query)){
+        $urlApiMovieDB = "$urlMovieDB/3/search/movie?api_key=$apiKeyMovieDB&language=$languageMovieDB&query=$query&page=1";
     
-    $urlApiMovieDB = "$urlMovieDB/3/search/movie?api_key=$apiKeyMovieDB&language=$languageMovieDB&query=$query&page=1";
-
-    $resultSearch = file_get_contents($urlApiMovieDB);
-    $arrSearch = json_decode($resultSearch, TRUE);
-
-    $movies = $arrSearch['results'];
+        $resultSearch = file_get_contents($urlApiMovieDB);
+        $arrSearch = json_decode($resultSearch, TRUE);
     
-
-    foreach ($movies as $key => $movie) {
-        $id = $movie['id']; // unique identifier of the content
-        $title = $movie['title']; // inline title
-        $description = $movie['overview']; // inline description
+        $movies = $arrSearch['results'];
         
-        $thumb_url = 'https://image.tmdb.org/t/p/w200'.$movie['backdrop_path'];
-        $thumb_width = 100;
-        $thumb_height = 100;
-
-        $poster_path = 'https://image.tmdb.org/t/p/w200'. $movie['poster_path'];
-
-        $original_title = $movie['original_title'];
-        $vote_average = $movie['vote_average'];
-        $vote_count = $movie['vote_count'];
-        $urlMovie = "https://www.themoviedb.org/movie/$id?language=es/";
-        
-        
-        array_push($results, 
-            Array(
-                'type' => 'article', 
-                'id' => "$id", 
-                'title' => $title, 
-                'description' => $description, 
-                'thumb_url' => $thumb_url,
-                'thumb_width' => $thumb_width,
-                'thumb_height' => $thumb_height,
-                'input_message_content' => Array(
-                'message_text' => "<b>$title</b>\nOriginal Title: $original_title\nVote Average: $vote_average\nVote Count: $vote_count\n\n<img src='$poster_path' alt='$original_title'>\n\n$description\n\n<a href='$urlMovie'>URL</a>",
-                    'parse_mode' => 'HTML',
+    
+        foreach ($movies as $key => $movie) {
+            $id = $movie['id']; // unique identifier of the content
+            $title = $movie['title']; // inline title
+            $description = $movie['overview']; // inline description
+            
+            $thumb_url = 'https://image.tmdb.org/t/p/w200'.$movie['backdrop_path'];
+            $thumb_width = 100;
+            $thumb_height = 100;
+    
+            $poster_path = 'https://image.tmdb.org/t/p/w200'. $movie['poster_path'];
+    
+            $original_title = $movie['original_title'];
+            $vote_average = $movie['vote_average'];
+            $vote_count = $movie['vote_count'];
+            $urlMovie = "https://www.themoviedb.org/movie/$id?language=es/";
+            
+            
+            array_push($results, 
+                Array(
+                    'type' => 'article', 
+                    'id' => "$id", 
+                    'title' => $title, 
+                    'description' => $description, 
+                    'thumb_url' => $thumb_url,
+                    'thumb_width' => $thumb_width,
+                    'thumb_height' => $thumb_height,
+                    'input_message_content' => Array(
+                    'message_text' => "<b>$title</b>\nOriginal Title: $original_title\nVote Average: $vote_average\nVote Count: $vote_count\n\n$description\n\n<a href='$urlMovie'>URL</a><img src='$thumb_url' alt='$original_title'>",
+                        'parse_mode' => 'HTML',
+                    )
                 )
-            )
-        );         
+            );         
+        }
+
+        $results = json_encode($results);
+        
+        answerInlineQuery($inline_query_id, $results);
     }
-
-    $results = json_encode($results);
-    
-    answerInlineQuery($inline_query_id, $results);
 }
-
 
 function answerInlineQuery($inline_query_id, $results){
     $url = $GLOBALS['website'].'/answerInlineQuery?inline_query_id='.$inline_query_id.'&results='.urlencode($results);
@@ -134,7 +149,10 @@ function sendPhoto($chatId, $urlimage) {
     $url = $GLOBALS['website'].'/sendPhoto?chat_id='.$chatId.'&photo='.$urlimage;
     file_get_contents($url);
 }
-
+function sendAnimation($chatId, $urlimage) {
+    $url = $GLOBALS['website'].'/?chat_id='.$chatId.'&animation='.$urlimage;
+    file_get_contents($url);
+}
 // Devuevle 2 equipos con orden random
 function getEquipos(){
     
@@ -167,9 +185,11 @@ function getFrase(){
 
 function getPartidos($str='hoy'){
     require 'lib/simplehtmldom/simple_html_dom.php';
-
-    $ligas_exc = ['BRASILEIRAO','MLS'];
-
+    
+    $ligas_exc = [];
+    $ligas_exc = json_decode(file_get_contents('ligas_exc.json'), true );
+    
+    
     $url = 'https://www.promiedos.com.ar/';
     
     switch($str) {
@@ -246,7 +266,10 @@ function getHelp(){
     return "/help - Lista de comandos
 /sortea - Sortea los equipos
 /wz - Envia el warzone llamado
-/batiwz - Envia la warzone señal";
+/batiwz - Envia la warzone señal
+/aye - Partidos de ayer
+/hoy - Partidos de hoy
+/man - Partidos de mañana";
 }
 
 function bitacora($msg){
